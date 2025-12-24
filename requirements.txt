@@ -1,0 +1,4 @@
+# MCP SDK
+mcp>=1.0.0
+
+# No other dependencies needed - works with existing JSON files
