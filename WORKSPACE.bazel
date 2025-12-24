@@ -1,0 +1,2 @@
+# Bazel workspace for Slack MCP Server
+# Using Bzlmod (MODULE.bazel) - this file exists for compatibility

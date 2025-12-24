@@ -1,0 +1,18 @@
+"""
+Slack MCP Server - Main Build File
+"""
+
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+
+# MCP Server binary
+py_binary(
+    name = "server",
+    srcs = ["server.py"],
+    main = "server.py",
+    deps = [
+        "@slack_mcp_pip//mcp",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# Allow running with: bazel run //:server

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Hemingway MCP - Slack Community Data & Block Kit Generation
+Slack MCP Server - Slack Community Data & Block Kit Generation
 
-Provides LLM-friendly access to Hemingway Slack community data and
+Provides LLM-friendly access to Slack community data and
 tools for generating gorgeous Slack Block Kit posts.
 
 Bare-bones version - works with JSON files, no database yet.
@@ -21,7 +21,7 @@ from mcp.types import Tool, TextContent
 from mcp.server.stdio import stdio_server
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("hemingway-mcp")
+logger = logging.getLogger("slack-mcp")
 
 # Paths
 BASE_DIR = Path(__file__).parent
@@ -41,8 +41,13 @@ def load_slack_data(json_path: Path) -> dict:
 
 
 def get_latest_extraction() -> Optional[Path]:
-    """Find the most recent hemingway extraction JSON in home directory"""
-    candidates = list(DATA_DIR.glob("hemingway_*.json"))
+    """Find the most recent Slack extraction JSON in home directory"""
+    # Look for common patterns: hemingway_*.json, slack_*.json, etc.
+    patterns = ["hemingway_*.json", "slack_*.json", "*_slack_export.json"]
+    candidates = []
+    for pattern in patterns:
+        candidates.extend(DATA_DIR.glob(pattern))
+
     if not candidates:
         return None
     # Sort by modification time, return newest
@@ -223,7 +228,7 @@ def build_context_block(elements: list) -> dict:
 # MCP Server
 # =============================================================================
 
-server = Server("hemingway-mcp")
+server = Server("slack-mcp")
 
 
 @server.list_tools()
@@ -232,7 +237,7 @@ async def list_tools() -> list[Tool]:
         # Data Query Tools
         Tool(
             name="query_messages",
-            description="Query messages from Hemingway Slack community. Returns list of messages matching filters.",
+            description="Query messages from Slack community. Returns list of messages matching filters.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -275,7 +280,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="get_new_members",
-            description="Get new members who joined the Hemingway community in a date range",
+            description="Get new members who joined the Slack community in a date range",
             inputSchema={
                 "type": "object",
                 "properties": {

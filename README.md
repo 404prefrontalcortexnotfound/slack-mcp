@@ -1,8 +1,8 @@
-# Hemingway MCP Server
+# Slack MCP Server
 
 **Slack Community Data & Block Kit Generation for LLMs**
 
-An MCP (Model Context Protocol) server that provides Claude and other LLMs with tools to query Hemingway Slack community data and generate gorgeous Slack Block Kit posts.
+An MCP (Model Context Protocol) server that provides Claude and other LLMs with tools to query Slack community data and generate Slack Block Kit posts.
 
 ## Features
 
@@ -22,23 +22,59 @@ An MCP (Model Context Protocol) server that provides Claude and other LLMs with 
 ## Installation
 
 ### Prerequisites
+
+**Bazel:**
+```bash
+# Install Bazel (if not already installed)
+# See: https://bazel.build/install
+```
+
+**Python dependencies:**
 ```bash
 pip install -r requirements.txt
 ```
 
+### Build with Bazel
+
+```bash
+# Build the server
+bazel build //:server
+
+# Run the server
+bazel run //:server
+```
+
 ### Add to Claude Code
 
-Add to your MCP config file (`.mcp.json` in project root or `~/.mcp.json`):
+Add to your MCP config file (`.mcp.json` in project root):
 ```json
 {
   "mcpServers": {
-    "hemingway-mcp": {
+    "slack-mcp": {
+      "type": "stdio",
+      "command": "bazel",
+      "args": [
+        "run",
+        "--ui_event_filters=-info,-stdout,-stderr",
+        "--noshow_progress",
+        "//:server"
+      ],
+      "cwd": "/absolute/path/to/slack-mcp",
+      "description": "Slack community data & Block Kit generation"
+    }
+  }
+}
+```
+
+**Alternative (direct Python):**
+```json
+{
+  "mcpServers": {
+    "slack-mcp": {
       "type": "stdio",
       "command": "python3",
-      "args": [
-        "/absolute/path/to/hemingway-mcp/server.py"
-      ],
-      "description": "Hemingway Slack community data & Block Kit generation"
+      "args": ["/absolute/path/to/slack-mcp/server.py"],
+      "description": "Slack community data & Block Kit generation"
     }
   }
 }
@@ -57,12 +93,12 @@ Result:
 ```json
 [
   {
-    "user": "Acacia Parks",
+    "user": "User Name",
     "channel": "02-discussion",
-    "text": "FDA TEMPO programme clarification...",
+    "text": "Discussion text...",
     "timestamp": "1734567890.123456",
     "reply_count": 5,
-    "permalink": "https://hemingway-community.slack.com/archives/..."
+    "permalink": "https://workspace.slack.com/archives/..."
   }
 ]
 ```
@@ -74,8 +110,8 @@ Use get_new_members to see who joined between Dec 15 and Dec 24
 
 ### Build Block Kit
 ```
-Use build_section to create a section with this text:
-"*FDA TEMPO Programme*\n\nAcacia Parks clarified how TEMPO works..."
+Use build_section to create a section with:
+"*Topic Title*\n\nDescription text here..."
 ```
 
 Result:
@@ -84,34 +120,66 @@ Result:
   "type": "section",
   "text": {
     "type": "mrkdwn",
-    "text": "*FDA TEMPO Programme*\n\nAcacia Parks clarified how TEMPO works..."
+    "text": "*Topic Title*\n\nDescription text here..."
   }
 }
 ```
 
 ## Data Source
 
-The server automatically finds the most recent `hemingway_*.json` file in your home directory.
+The server automatically finds the most recent Slack extraction JSON in your home directory.
 
-**Current workflow:**
-1. Run extraction script to generate JSON file
-2. MCP server reads this file automatically
-3. Query and build posts using MCP tools
+**Supported patterns:**
+- `hemingway_*.json`
+- `slack_*.json`
+- `*_slack_export.json`
+
+**Workflow:**
+1. Export Slack data to JSON (using your extraction script)
+2. Place JSON file in home directory
+3. MCP server auto-discovers and uses latest file
+4. Query and build posts using MCP tools
 
 ## Architecture
 
 **Current (Bare-bones MVP):**
-- Reads JSON files directly
-- No database
-- Perfect for rapid prototyping
-- Works immediately with existing data
+- ✅ Bazel build system
+- ✅ Reads JSON files directly
+- ✅ No database (file-based)
+- ✅ Works with any Slack community
+- ✅ Generic Block Kit generation
 
 **Future (Production):**
 - PostgreSQL database with persistent storage
 - Granular Bazel workers for each operation
 - Incremental sync (cron job, not full re-extraction)
 - Automated content generation and deployment
-- See architecture docs for full plan
+- Multi-community support
+
+## Bazel Structure
+
+```
+slack-mcp/
+├── MODULE.bazel          # Bazel module config (Bzlmod)
+├── WORKSPACE.bazel       # Bazel workspace (compatibility)
+├── BUILD.bazel           # Build targets
+├── requirements.txt      # Python dependencies
+├── requirements_lock.txt # Locked dependencies
+└── server.py             # MCP server implementation
+```
+
+### Build Targets
+
+```bash
+# Build server binary
+bazel build //:server
+
+# Run server (for testing)
+bazel run //:server
+
+# Clean build artifacts
+bazel clean
+```
 
 ## Block Kit Tips
 
@@ -134,38 +202,72 @@ When building weekly digest posts:
 
 ## Development
 
-### Running Locally
+### Running Locally (Development Mode)
 ```bash
+# Direct Python execution (no Bazel)
 python3 server.py
 ```
 
-The server runs in stdio mode for MCP communication.
-
 ### Testing
-Test individual functions:
-```python
-from server import query_messages, build_section_block
-# Test your queries here
+```bash
+# Test server imports
+python3 -c "from server import query_messages, build_section_block; print('OK')"
+
+# Test with Bazel
+bazel test //... # (when tests are added)
+```
+
+### Adding Dependencies
+```bash
+# Add to requirements.txt
+echo "new-package>=1.0.0" >> requirements.txt
+
+# Regenerate lock file
+pip-compile requirements.txt --output-file=requirements_lock.txt
+
+# Rebuild
+bazel build //:server
 ```
 
 ## Troubleshooting
 
 ### "No Slack extraction data found"
-Make sure you have a `hemingway_*.json` file in your home directory.
+Make sure you have a compatible JSON file in your home directory:
+- `~/hemingway_*.json`
+- `~/slack_*.json`
+- `~/*_slack_export.json`
 
 ### Server not appearing in Claude Code
 1. Check `.mcp.json` syntax (valid JSON)
 2. Restart Claude Code completely
-3. Verify absolute path to `server.py` is correct
+3. Verify paths are absolute (not relative)
+4. Check Bazel is in PATH (`which bazel`)
+
+### Bazel build errors
+```bash
+# Clean and rebuild
+bazel clean --expunge
+bazel build //:server
+
+# Check Python version
+bazel run @python_3_11//:python -- --version
+```
 
 ### Import errors
 ```bash
 pip install --upgrade mcp
+pip-compile requirements.txt --output-file=requirements_lock.txt
 ```
 
 ## Contributing
 
-This is a standalone MCP server for the Hemingway community automation project.
+This is a generic Slack MCP server for community automation projects.
+
+### Development Workflow
+1. Make changes to `server.py`
+2. Test locally: `python3 server.py`
+3. Build with Bazel: `bazel build //:server`
+4. Commit and push
 
 ## License
 
@@ -173,5 +275,5 @@ MIT
 
 ---
 
-**Status:** Bare-bones MVP (works with JSON files)
+**Status:** Bare-bones MVP with Bazel build system
 **Next:** Database integration, workers, automation

@@ -1,0 +1,25 @@
+"""
+Slack MCP Server - Bazel Module Configuration
+"""
+
+module(
+    name = "slack-mcp",
+    version = "0.1.0",
+)
+
+# Python rules
+bazel_dep(name = "rules_python", version = "0.35.0")
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    python_version = "3.11",
+)
+
+# Pip dependencies
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "slack_mcp_pip",
+    python_version = "3.11",
+    requirements_lock = "//:requirements_lock.txt",
+)
+use_repo(pip, "slack_mcp_pip")
